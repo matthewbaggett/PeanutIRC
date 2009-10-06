@@ -8,6 +8,8 @@ class Peanut{
 	static $transports;	//array of transports loaded to read/write to
 	static $oTransports;
 	
+	static $schedule;
+	
 	private $loopsMaxPerSecond = 3;
 	
 	/**
@@ -15,6 +17,7 @@ class Peanut{
 	 * @return none
 	 */
 	function __construct(){
+		
 		Peanut::static_construct();
 		foreach(Peanut::getTransports() as $transportDef){
 			$transportClass = $transportDef['class'];
@@ -25,6 +28,7 @@ class Peanut{
 	
 	static function static_construct(){
 		//self::$transports = array();
+		self::$schedule = array();
 	} 
 	
 	/**
@@ -36,6 +40,7 @@ class Peanut{
 	 */
 	function main(){
 		$this->readTransports();
+		Peanut::Heartbeat();
 		$this->processMessageBuff();
 		$this->writeTransports();
 		Peanut::Debug("Main loop complete.");
@@ -105,6 +110,26 @@ class Peanut{
 	
 	static function getTransportObjects(){
 		return self::$oTransports;
+	}
+	
+	static function addDelayedEvent($timeFromNowInSeconds,$callback){
+		$timeToFire = microtime(true) + $timeFromNowInSeconds;
+		self::$schedule[$timeToFire] = $callback;
+	}
+	
+	static function Heartbeat(){
+		foreach(self::$schedule as $time => $callback){
+			if($time <= time()){
+				if(is_array($callback)){
+					$class = $callback[0];
+					$method = $callback[1];
+					$class->$method();
+				}else{
+					$callback();
+				}
+				unset(self::$schedule[$time]);
+			}
+		}
 	}
 	
 	/**
